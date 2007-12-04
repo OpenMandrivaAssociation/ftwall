@@ -1,6 +1,6 @@
 Name:           ftwall 
 Version:        1.08
-Release:        2mdk
+Release:         %mkrel 2
 Summary:        Fast Track protocol filter for Linux Netfilter firewalls
 
 Group:          System/Configuration/Networking
