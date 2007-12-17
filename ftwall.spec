@@ -8,7 +8,6 @@ License:        GPL
 URL:            http://www.lowth.com/p2pwall/ftwall/
 Source0:        ftwall-1.08.tar.bz2
 Patch0:         ftwall-1.07-Makefile.patch.bz2
-BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}
 
 BuildRequires:  openssl-devel perl iptables-devel
 Requires:       iptables chkconfig
