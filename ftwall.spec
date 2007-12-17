@@ -11,7 +11,7 @@ Patch0:         ftwall-1.07-Makefile.patch.bz2
 
 BuildRequires:  openssl-devel perl iptables-devel
 Requires:       iptables chkconfig
-Prereq: 	rpm-helper
+Requires(post,preun):	rpm-helper
 
 %description
 ftwall is a program for linux firewalls that allows the control of
