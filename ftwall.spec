@@ -44,7 +44,7 @@ find . -type f | xargs perl -pi -e "s,insmod,modprobe,g"
 rm -rf $RPM_BUILD_ROOT
 make mandrake_install
 # Offender IP addresses logged here
-mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/log/ftwall.clients
+mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/lib/log/ftwall.clients
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -62,6 +62,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_sbindir}/*
 %attr(755,root,root) %config(noreplace) %{_initrddir}/*
 %{_mandir}/man8/*
-%dir %{_localstatedir}/log/ftwall.clients
+%dir %{_localstatedir}/lib/log/ftwall.clients
 
 
