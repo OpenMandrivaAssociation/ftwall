@@ -1,7 +1,7 @@
 Summary:	Fast Track protocol filter for Linux Netfilter firewalls
 Name:		ftwall 
 Version:	1.09
-Release:	%mkrel 1
+Release:	%mkrel 2
 Group:		System/Configuration/Networking
 License:	GPL
 URL:		http://www.lowth.com/p2pwall/ftwall/
