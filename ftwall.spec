@@ -36,7 +36,7 @@ this package in /usr/share/doc/ftwall-%{version}
 %prep
 
 %setup -q 
-%patch0 -p1
+%patch0 -p0
 %patch1 -p0
 %patch2 -p0
 %patch3 -p1
