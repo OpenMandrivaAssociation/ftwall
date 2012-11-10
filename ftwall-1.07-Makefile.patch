@@ -1,0 +1,35 @@
+--- Makefile	2004-06-25 00:57:13.000000000 +0200
++++ Makefile.oden	2009-10-04 20:03:44.000000000 +0200
+@@ -23,9 +23,9 @@
+ CFLAGS=`sh findlibs.sh` -DVERSION='"$(VERSION)"' -DRELDATE='"$(RELDATE)"'
+ 
+ all: ftwall ftwall.8.gz
+-	chown root.root ftwall ftwall.redhat.init
++	#chown root.root ftwall ftwall.redhat.init
+ 	chmod 755 ftwall ftwall.redhat.init
+-	@$(MAKE) donate
++	#@$(MAKE) donate
+ 
+ donate:
+ 	: ------------------------------------------------------------------ :
+@@ -67,12 +67,15 @@
+ 	: ---------------------------------------------------------- :
+ 
+ redhat_install: ftwall ftwall.8.gz
+-	install -o root -g root -m 755 ftwall.redhat.init /etc/init.d/ftwall
+-	/sbin/chkconfig --add ftwall
+-	install -o root -g root -m 755 ftwall /usr/sbin/ftwall
+-	install -o root -g root -m 644 ftwall.8.gz /usr/share/man/man8/ftwall.8.gz
++	mkdir -p $(RPM_BUILD_ROOT)/etc/rc.d/init.d/
++	install -m 755 ftwall.redhat.init $(RPM_BUILD_ROOT)/etc/rc.d/init.d/ftwall
++	#/sbin/chkconfig --add ftwall
++	mkdir -p $(RPM_BUILD_ROOT)/usr/sbin/
++	install -m 755 ftwall $(RPM_BUILD_ROOT)/usr/sbin/ftwall
++	mkdir -p $(RPM_BUILD_ROOT)/usr/share/man/man8/
++	install -m 644 ftwall.8.gz $(RPM_BUILD_ROOT)/usr/share/man/man8/ftwall.8.gz
+ 	#makewhatis -u -v
+-	@$(MAKE) donate
++	#@$(MAKE) donate
+ 
+ mandrake_install: redhat_install
+ 

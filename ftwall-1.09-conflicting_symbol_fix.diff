@@ -1,0 +1,38 @@
+--- ftwall.c	2004-07-09 00:18:36.000000000 +0200
++++ ftwall.c.oden	2008-07-27 14:28:12.000000000 +0200
+@@ -89,7 +89,7 @@
+ 
+ int raw_socket;			/* Socket used for sending fake replies */
+ 
+-FILE *STORE = NULL;		/* Peer address database file handle */
++FILE *FTWALL_STORE = NULL;		/* Peer address database file handle */
+ 
+ /* Configuration vars */
+ 
+@@ -350,9 +350,9 @@
+ 			print_addr(stdout, ip, port);
+ 			printf("\n");
+ 		}
+-		if (STORE != NULL) {
+-			print_addr(STORE,ip,port);
+-			fprintf(STORE,"\n");
++		if (FTWALL_STORE != NULL) {
++			print_addr(FTWALL_STORE,ip,port);
++			fprintf(FTWALL_STORE,"\n");
+ 		}
+ 		if (what2log & LOG_IDENTIFIED_PEERS) {
+ 			struct in_addr a;
+@@ -1084,10 +1084,10 @@
+ 			fclose(store_in);
+ 		}
+ 
+-		STORE = fopen(storefilename, "a" );
+-		if (STORE == NULL) 
++		FTWALL_STORE = fopen(storefilename, "a" );
++		if (FTWALL_STORE == NULL) 
+ 			die(NULL, "Cant open '%s' for writing", storefilename);
+-		setbuf(STORE, NULL);
++		setbuf(FTWALL_STORE, NULL);
+ 	}
+ 
+ 	probe_socket = socket(PF_INET, SOCK_DGRAM, 0);

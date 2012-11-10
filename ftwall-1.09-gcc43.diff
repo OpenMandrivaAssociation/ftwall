@@ -1,0 +1,10 @@
+--- ftwall.c	2004-07-09 00:18:36.000000000 +0200
++++ ftwall.c.oden	2008-07-27 14:27:20.000000000 +0200
+@@ -42,6 +42,7 @@
+ #include <assert.h>
+ #include <signal.h>
+ #include <syslog.h>
++#include <limits.h>
+ #include "lhash/lhash.h"
+ #include <netinet/ip.h>
+ #include <netinet/tcp.h>

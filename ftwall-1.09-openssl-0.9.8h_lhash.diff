@@ -1,0 +1,492 @@
+diff -Naur ftwall-1.09/lhash/lhash.c ftwall-1.09.oden/lhash/lhash.c
+--- ftwall-1.09/lhash/lhash.c	2003-08-05 13:31:11.000000000 +0200
++++ ftwall-1.09.oden/lhash/lhash.c	2007-01-21 14:16:32.000000000 +0100
+@@ -100,7 +100,7 @@
+ #include <openssl/crypto.h>
+ #include <openssl/lhash.h>
+ 
+-const char *lh_version="lhash" OPENSSL_VERSION_PTEXT;
++const char lh_version[]="lhash" OPENSSL_VERSION_PTEXT;
+ 
+ #undef MIN_NODES 
+ #define MIN_NODES	16
+@@ -109,9 +109,9 @@
+ 
+ static void expand(LHASH *lh);
+ static void contract(LHASH *lh);
+-static LHASH_NODE **getrn(LHASH *lh, void *data, unsigned long *rhash);
++static LHASH_NODE **getrn(LHASH *lh, const void *data, unsigned long *rhash);
+ 
+-LHASH *lh_new(unsigned long (*h)(), int (*c)())
++LHASH *lh_new(LHASH_HASH_FN_TYPE h, LHASH_COMP_FN_TYPE c)
+ 	{
+ 	LHASH *ret;
+ 	int i;
+@@ -122,8 +122,8 @@
+ 		goto err1;
+ 	for (i=0; i<MIN_NODES; i++)
+ 		ret->b[i]=NULL;
+-	ret->comp=((c == NULL)?(int (*)())strcmp:c);
+-	ret->hash=((h == NULL)?(unsigned long (*)())lh_strhash:h);
++	ret->comp=((c == NULL)?(LHASH_COMP_FN_TYPE)strcmp:c);
++	ret->hash=((h == NULL)?(LHASH_HASH_FN_TYPE)lh_strhash:h);
+ 	ret->num_nodes=MIN_NODES/2;
+ 	ret->num_alloc_nodes=MIN_NODES;
+ 	ret->p=0;
+@@ -197,7 +197,7 @@
+ 			}
+ 		nn->data=data;
+ 		nn->next=NULL;
+-#ifndef NO_HASH_COMP
++#ifndef OPENSSL_NO_HASH_COMP
+ 		nn->hash=hash;
+ #endif
+ 		*rn=nn;
+@@ -214,7 +214,7 @@
+ 	return(ret);
+ 	}
+ 
+-void *lh_delete(LHASH *lh, void *data)
++void *lh_delete(LHASH *lh, const void *data)
+ 	{
+ 	unsigned long hash;
+ 	LHASH_NODE *nn,**rn;
+@@ -245,7 +245,7 @@
+ 	return(ret);
+ 	}
+ 
+-void *lh_retrieve(LHASH *lh, void *data)
++void *lh_retrieve(LHASH *lh, const void *data)
+ 	{
+ 	unsigned long hash;
+ 	LHASH_NODE **rn;
+@@ -267,12 +267,8 @@
+ 	return(ret);
+ 	}
+ 
+-void lh_doall(LHASH *lh, void (*func)())
+-	{
+-	lh_doall_arg(lh,func,NULL);
+-	}
+-
+-void lh_doall_arg(LHASH *lh, void (*func)(), void *arg)
++static void doall_util_fn(LHASH *lh, int use_arg, LHASH_DOALL_FN_TYPE func,
++			  LHASH_DOALL_ARG_FN_TYPE func_arg, void *arg)
+ 	{
+ 	int i;
+ 	LHASH_NODE *a,*n;
+@@ -287,12 +283,25 @@
+ 			/* 28/05/91 - eay - n added so items can be deleted
+ 			 * via lh_doall */
+ 			n=a->next;
+-			func(a->data,arg);
++			if(use_arg)
++				func_arg(a->data,arg);
++			else
++				func(a->data);
+ 			a=n;
+ 			}
+ 		}
+ 	}
+ 
++void lh_doall(LHASH *lh, LHASH_DOALL_FN_TYPE func)
++	{
++	doall_util_fn(lh, 0, func, (LHASH_DOALL_ARG_FN_TYPE)0, NULL);
++	}
++
++void lh_doall_arg(LHASH *lh, LHASH_DOALL_ARG_FN_TYPE func, void *arg)
++	{
++	doall_util_fn(lh, 1, (LHASH_DOALL_FN_TYPE)0, func, arg);
++	}
++
+ static void expand(LHASH *lh)
+ 	{
+ 	LHASH_NODE **n,**n1,**n2,*np;
+@@ -309,10 +318,10 @@
+ 	
+ 	for (np= *n1; np != NULL; )
+ 		{
+-#ifndef NO_HASH_COMP
++#ifndef OPENSSL_NO_HASH_COMP
+ 		hash=np->hash;
+ #else
+-		hash=(*(lh->hash))(np->data);
++		hash=lh->hash(np->data);
+ 		lh->num_hash_calls++;
+ #endif
+ 		if ((hash%nni) != p)
+@@ -330,7 +339,7 @@
+ 		{
+ 		j=(int)lh->num_alloc_nodes*2;
+ 		n=(LHASH_NODE **)OPENSSL_realloc(lh->b,
+-			(unsigned int)sizeof(LHASH_NODE *)*j);
++			(int)(sizeof(LHASH_NODE *)*j));
+ 		if (n == NULL)
+ 			{
+ /*			fputs("realloc error in lhash",stderr); */
+@@ -388,11 +397,11 @@
+ 		}
+ 	}
+ 
+-static LHASH_NODE **getrn(LHASH *lh, void *data, unsigned long *rhash)
++static LHASH_NODE **getrn(LHASH *lh, const void *data, unsigned long *rhash)
+ 	{
+ 	LHASH_NODE **ret,*n1;
+ 	unsigned long hash,nn;
+-	int (*cf)();
++	LHASH_COMP_FN_TYPE cf;
+ 
+ 	hash=(*(lh->hash))(data);
+ 	lh->num_hash_calls++;
+@@ -406,7 +415,7 @@
+ 	ret= &(lh->b[(int)nn]);
+ 	for (n1= *ret; n1 != NULL; n1=n1->next)
+ 		{
+-#ifndef NO_HASH_COMP
++#ifndef OPENSSL_NO_HASH_COMP
+ 		lh->num_hash_comps++;
+ 		if (n1->hash != hash)
+ 			{
+@@ -415,7 +424,7 @@
+ 			}
+ #endif
+ 		lh->num_comp_calls++;
+-		if ((*cf)(n1->data,data) == 0)
++		if(cf(n1->data,data) == 0)
+ 			break;
+ 		ret= &(n1->next);
+ 		}
+@@ -455,7 +464,7 @@
+ 	return((ret>>16)^ret);
+ 	}
+ 
+-unsigned long lh_num_items(LHASH *lh)
++unsigned long lh_num_items(const LHASH *lh)
+ 	{
+ 	return lh ? lh->num_items : 0;
+ 	}
+diff -Naur ftwall-1.09/lhash/lhash.h ftwall-1.09.oden/lhash/lhash.h
+--- ftwall-1.09/lhash/lhash.h	2003-06-29 17:31:14.000000000 +0200
++++ ftwall-1.09.oden/lhash/lhash.h	2003-10-29 05:57:05.000000000 +0100
+@@ -63,11 +63,12 @@
+ #ifndef HEADER_LHASH_H
+ #define HEADER_LHASH_H
+ 
+-#ifndef NO_FP_API
++#include <openssl/e_os2.h>
++#ifndef OPENSSL_NO_FP_API
+ #include <stdio.h>
+ #endif
+ 
+-#ifndef NO_BIO
++#ifndef OPENSSL_NO_BIO
+ #include <openssl/bio.h>
+ #endif
+ 
+@@ -79,16 +80,66 @@
+ 	{
+ 	void *data;
+ 	struct lhash_node_st *next;
+-#ifndef NO_HASH_COMP
++#ifndef OPENSSL_NO_HASH_COMP
+ 	unsigned long hash;
+ #endif
+ 	} LHASH_NODE;
+ 
++typedef int (*LHASH_COMP_FN_TYPE)(const void *, const void *);
++typedef unsigned long (*LHASH_HASH_FN_TYPE)(const void *);
++typedef void (*LHASH_DOALL_FN_TYPE)(void *);
++typedef void (*LHASH_DOALL_ARG_FN_TYPE)(void *, void *);
++
++/* Macros for declaring and implementing type-safe wrappers for LHASH callbacks.
++ * This way, callbacks can be provided to LHASH structures without function
++ * pointer casting and the macro-defined callbacks provide per-variable casting
++ * before deferring to the underlying type-specific callbacks. NB: It is
++ * possible to place a "static" in front of both the DECLARE and IMPLEMENT
++ * macros if the functions are strictly internal. */
++
++/* First: "hash" functions */
++#define DECLARE_LHASH_HASH_FN(f_name,o_type) \
++	unsigned long f_name##_LHASH_HASH(const void *);
++#define IMPLEMENT_LHASH_HASH_FN(f_name,o_type) \
++	unsigned long f_name##_LHASH_HASH(const void *arg) { \
++		o_type a = (o_type)arg; \
++		return f_name(a); }
++#define LHASH_HASH_FN(f_name) f_name##_LHASH_HASH
++
++/* Second: "compare" functions */
++#define DECLARE_LHASH_COMP_FN(f_name,o_type) \
++	int f_name##_LHASH_COMP(const void *, const void *);
++#define IMPLEMENT_LHASH_COMP_FN(f_name,o_type) \
++	int f_name##_LHASH_COMP(const void *arg1, const void *arg2) { \
++		o_type a = (o_type)arg1; \
++		o_type b = (o_type)arg2; \
++		return f_name(a,b); }
++#define LHASH_COMP_FN(f_name) f_name##_LHASH_COMP
++
++/* Third: "doall" functions */
++#define DECLARE_LHASH_DOALL_FN(f_name,o_type) \
++	void f_name##_LHASH_DOALL(void *);
++#define IMPLEMENT_LHASH_DOALL_FN(f_name,o_type) \
++	void f_name##_LHASH_DOALL(void *arg) { \
++		o_type a = (o_type)arg; \
++		f_name(a); }
++#define LHASH_DOALL_FN(f_name) f_name##_LHASH_DOALL
++
++/* Fourth: "doall_arg" functions */
++#define DECLARE_LHASH_DOALL_ARG_FN(f_name,o_type,a_type) \
++	void f_name##_LHASH_DOALL_ARG(void *, void *);
++#define IMPLEMENT_LHASH_DOALL_ARG_FN(f_name,o_type,a_type) \
++	void f_name##_LHASH_DOALL_ARG(void *arg1, void *arg2) { \
++		o_type a = (o_type)arg1; \
++		a_type b = (a_type)arg2; \
++		f_name(a,b); }
++#define LHASH_DOALL_ARG_FN(f_name) f_name##_LHASH_DOALL_ARG
++
+ typedef struct lhash_st
+ 	{
+ 	LHASH_NODE **b;
+-	int (*comp)();
+-	unsigned long (*hash)();
++	LHASH_COMP_FN_TYPE comp;
++	LHASH_HASH_FN_TYPE hash;
+ 	unsigned int num_nodes;
+ 	unsigned int num_alloc_nodes;
+ 	unsigned int p;
+@@ -120,26 +171,26 @@
+  * in lh_insert(). */
+ #define lh_error(lh)	((lh)->error)
+ 
+-LHASH *lh_new(unsigned long (*h)(/* void *a */), int (*c)(/* void *a,void *b */));
++LHASH *lh_new(LHASH_HASH_FN_TYPE h, LHASH_COMP_FN_TYPE c);
+ void lh_free(LHASH *lh);
+ void *lh_insert(LHASH *lh, void *data);
+-void *lh_delete(LHASH *lh, void *data);
+-void *lh_retrieve(LHASH *lh, void *data);
+-    void lh_doall(LHASH *lh, void (*func)(/*void *b*/));
+-void lh_doall_arg(LHASH *lh, void (*func)(/*void *a,void *b*/),void *arg);
++void *lh_delete(LHASH *lh, const void *data);
++void *lh_retrieve(LHASH *lh, const void *data);
++void lh_doall(LHASH *lh, LHASH_DOALL_FN_TYPE func);
++void lh_doall_arg(LHASH *lh, LHASH_DOALL_ARG_FN_TYPE func, void *arg);
+ unsigned long lh_strhash(const char *c);
+-unsigned long lh_num_items(LHASH *lh);
++unsigned long lh_num_items(const LHASH *lh);
+ 
+-#ifndef NO_FP_API
+-void lh_stats(LHASH *lh, FILE *out);
+-void lh_node_stats(LHASH *lh, FILE *out);
+-void lh_node_usage_stats(LHASH *lh, FILE *out);
++#ifndef OPENSSL_NO_FP_API
++void lh_stats(const LHASH *lh, FILE *out);
++void lh_node_stats(const LHASH *lh, FILE *out);
++void lh_node_usage_stats(const LHASH *lh, FILE *out);
+ #endif
+ 
+-#ifndef NO_BIO
+-void lh_stats_bio(LHASH *lh, BIO *out);
+-void lh_node_stats_bio(LHASH *lh, BIO *out);
+-void lh_node_usage_stats_bio(LHASH *lh, BIO *out);
++#ifndef OPENSSL_NO_BIO
++void lh_stats_bio(const LHASH *lh, BIO *out);
++void lh_node_stats_bio(const LHASH *lh, BIO *out);
++void lh_node_usage_stats_bio(const LHASH *lh, BIO *out);
+ #endif
+ #ifdef  __cplusplus
+ }
+diff -Naur ftwall-1.09/lhash/lh_stats.c ftwall-1.09.oden/lhash/lh_stats.c
+--- ftwall-1.09/lhash/lh_stats.c	2000-06-13 18:19:37.000000000 +0200
++++ ftwall-1.09.oden/lhash/lh_stats.c	2002-11-13 16:42:53.000000000 +0100
+@@ -63,12 +63,12 @@
+  * and things should work as expected */
+ #include "cryptlib.h"
+ 
+-#ifndef NO_BIO
++#ifndef OPENSSL_NO_BIO
+ #include <openssl/bio.h>
+ #endif
+ #include <openssl/lhash.h>
+ 
+-#ifdef NO_BIO
++#ifdef OPENSSL_NO_BIO
+ 
+ void lh_stats(LHASH *lh, FILE *out)
+ 	{
+@@ -88,7 +88,7 @@
+ 	fprintf(out,"num_retrieve          = %lu\n",lh->num_retrieve);
+ 	fprintf(out,"num_retrieve_miss     = %lu\n",lh->num_retrieve_miss);
+ 	fprintf(out,"num_hash_comps        = %lu\n",lh->num_hash_comps);
+-#ifdef DEBUG
++#if 0
+ 	fprintf(out,"p                     = %u\n",lh->p);
+ 	fprintf(out,"pmax                  = %u\n",lh->pmax);
+ 	fprintf(out,"up_load               = %lu\n",lh->up_load);
+@@ -138,8 +138,8 @@
+ 
+ #else
+ 
+-#ifndef NO_FP_API
+-void lh_stats(LHASH *lh, FILE *fp)
++#ifndef OPENSSL_NO_FP_API
++void lh_stats(const LHASH *lh, FILE *fp)
+ 	{
+ 	BIO *bp;
+ 
+@@ -151,7 +151,7 @@
+ end:;
+ 	}
+ 
+-void lh_node_stats(LHASH *lh, FILE *fp)
++void lh_node_stats(const LHASH *lh, FILE *fp)
+ 	{
+ 	BIO *bp;
+ 
+@@ -163,7 +163,7 @@
+ end:;
+ 	}
+ 
+-void lh_node_usage_stats(LHASH *lh, FILE *fp)
++void lh_node_usage_stats(const LHASH *lh, FILE *fp)
+ 	{
+ 	BIO *bp;
+ 
+@@ -177,76 +177,53 @@
+ 
+ #endif
+ 
+-void lh_stats_bio(LHASH *lh, BIO *out)
++void lh_stats_bio(const LHASH *lh, BIO *out)
+ 	{
+-	char buf[128];
+-
+-	sprintf(buf,"num_items             = %lu\n",lh->num_items);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_nodes             = %u\n",lh->num_nodes);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_alloc_nodes       = %u\n",lh->num_alloc_nodes);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_expands           = %lu\n",lh->num_expands);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_expand_reallocs   = %lu\n",lh->num_expand_reallocs);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_contracts         = %lu\n",lh->num_contracts);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_contract_reallocs = %lu\n",lh->num_contract_reallocs);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_hash_calls        = %lu\n",lh->num_hash_calls);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_comp_calls        = %lu\n",lh->num_comp_calls);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_insert            = %lu\n",lh->num_insert);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_replace           = %lu\n",lh->num_replace);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_delete            = %lu\n",lh->num_delete);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_no_delete         = %lu\n",lh->num_no_delete);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_retrieve          = %lu\n",lh->num_retrieve);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_retrieve_miss     = %lu\n",lh->num_retrieve_miss);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"num_hash_comps        = %lu\n",lh->num_hash_comps);
+-	BIO_puts(out,buf);
+-#ifdef DEBUG
+-	sprintf(buf,"p                     = %u\n",lh->p);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"pmax                  = %u\n",lh->pmax);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"up_load               = %lu\n",lh->up_load);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"down_load             = %lu\n",lh->down_load);
+-	BIO_puts(out,buf);
++	BIO_printf(out,"num_items             = %lu\n",lh->num_items);
++	BIO_printf(out,"num_nodes             = %u\n",lh->num_nodes);
++	BIO_printf(out,"num_alloc_nodes       = %u\n",lh->num_alloc_nodes);
++	BIO_printf(out,"num_expands           = %lu\n",lh->num_expands);
++	BIO_printf(out,"num_expand_reallocs   = %lu\n",
++		   lh->num_expand_reallocs);
++	BIO_printf(out,"num_contracts         = %lu\n",lh->num_contracts);
++	BIO_printf(out,"num_contract_reallocs = %lu\n",
++		   lh->num_contract_reallocs);
++	BIO_printf(out,"num_hash_calls        = %lu\n",lh->num_hash_calls);
++	BIO_printf(out,"num_comp_calls        = %lu\n",lh->num_comp_calls);
++	BIO_printf(out,"num_insert            = %lu\n",lh->num_insert);
++	BIO_printf(out,"num_replace           = %lu\n",lh->num_replace);
++	BIO_printf(out,"num_delete            = %lu\n",lh->num_delete);
++	BIO_printf(out,"num_no_delete         = %lu\n",lh->num_no_delete);
++	BIO_printf(out,"num_retrieve          = %lu\n",lh->num_retrieve);
++	BIO_printf(out,"num_retrieve_miss     = %lu\n",lh->num_retrieve_miss);
++	BIO_printf(out,"num_hash_comps        = %lu\n",lh->num_hash_comps);
++#if 0
++	BIO_printf(out,"p                     = %u\n",lh->p);
++	BIO_printf(out,"pmax                  = %u\n",lh->pmax);
++	BIO_printf(out,"up_load               = %lu\n",lh->up_load);
++	BIO_printf(out,"down_load             = %lu\n",lh->down_load);
+ #endif
+ 	}
+ 
+-void lh_node_stats_bio(LHASH *lh, BIO *out)
++void lh_node_stats_bio(const LHASH *lh, BIO *out)
+ 	{
+ 	LHASH_NODE *n;
+ 	unsigned int i,num;
+-	char buf[128];
+ 
+ 	for (i=0; i<lh->num_nodes; i++)
+ 		{
+ 		for (n=lh->b[i],num=0; n != NULL; n=n->next)
+ 			num++;
+-		sprintf(buf,"node %6u -> %3u\n",i,num);
+-		BIO_puts(out,buf);
++		BIO_printf(out,"node %6u -> %3u\n",i,num);
+ 		}
+ 	}
+ 
+-void lh_node_usage_stats_bio(LHASH *lh, BIO *out)
++void lh_node_usage_stats_bio(const LHASH *lh, BIO *out)
+ 	{
+ 	LHASH_NODE *n;
+ 	unsigned long num;
+ 	unsigned int i;
+ 	unsigned long total=0,n_used=0;
+-	char buf[128];
+ 
+ 	for (i=0; i<lh->num_nodes; i++)
+ 		{
+@@ -258,17 +235,14 @@
+ 			total+=num;
+ 			}
+ 		}
+-	sprintf(buf,"%lu nodes used out of %u\n",n_used,lh->num_nodes);
+-	BIO_puts(out,buf);
+-	sprintf(buf,"%lu items\n",total);
+-	BIO_puts(out,buf);
++	BIO_printf(out,"%lu nodes used out of %u\n",n_used,lh->num_nodes);
++	BIO_printf(out,"%lu items\n",total);
+ 	if (n_used == 0) return;
+-	sprintf(buf,"load %d.%02d  actual load %d.%02d\n",
+-		(int)(total/lh->num_nodes),
+-		(int)((total%lh->num_nodes)*100/lh->num_nodes),
+-		(int)(total/n_used),
+-		(int)((total%n_used)*100/n_used));
+-	BIO_puts(out,buf);
++	BIO_printf(out,"load %d.%02d  actual load %d.%02d\n",
++		   (int)(total/lh->num_nodes),
++		   (int)((total%lh->num_nodes)*100/lh->num_nodes),
++		   (int)(total/n_used),
++		   (int)((total%n_used)*100/n_used));
+ 	}
+ 
+ #endif
+diff -Naur ftwall-1.09/lhash/lh_test.c ftwall-1.09.oden/lhash/lh_test.c
+--- ftwall-1.09/lhash/lh_test.c	2000-06-08 12:45:43.000000000 +0200
++++ ftwall-1.09.oden/lhash/lh_test.c	2002-03-21 20:08:35.000000000 +0100
+@@ -75,7 +75,6 @@
+ 		buf[0]='\0';
+ 		fgets(buf,256,stdin);
+ 		if (buf[0] == '\0') break;
+-		buf[256]='\0';
+ 		i=strlen(buf);
+ 		p=OPENSSL_malloc(i+1);
+ 		memcpy(p,buf,i+1);

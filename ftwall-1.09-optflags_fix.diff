@@ -1,0 +1,11 @@
+--- Makefile	2008-07-27 14:37:17.000000000 +0200
++++ Makefile.oden	2008-07-27 14:48:55.000000000 +0200
+@@ -20,7 +20,7 @@
+ VERSION=1.09
+ RELDATE=Jun 24th, 2004
+ 
+-CFLAGS=`sh findlibs.sh` -DVERSION='"$(VERSION)"' -DRELDATE='"$(RELDATE)"'
++CFLAGS=`sh findlibs.sh` -DVERSION='"$(VERSION)"' -DRELDATE='"$(RELDATE)"' $(RPM_OPT_FLAGS)
+ 
+ all: ftwall ftwall.8.gz
+ 	#chown root.root ftwall ftwall.redhat.init
