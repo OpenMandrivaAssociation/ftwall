@@ -1,7 +1,7 @@
 Summary:	Fast Track protocol filter for Linux Netfilter firewalls
 Name:		ftwall 
 Version:	1.09
-Release:	%mkrel 5
+Release:	5
 Group:		System/Configuration/Networking
 License:	GPL
 URL:		http://www.lowth.com/p2pwall/ftwall/
@@ -16,9 +16,9 @@ Requires(preun): rpm-helper
 Requires:	iptables
 Requires:	chkconfig
 BuildRequires:	iptables-devel
+BuildRequires:	pkgconfig(libipq)
 BuildRequires:	openssl-devel
 BuildRequires:	perl
-BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 %description
 ftwall is a program for linux firewalls that allows the control of network
@@ -76,3 +76,44 @@ rm -rf %{buildroot}
 %{_sbindir}/*
 %dir /var/log/ftwall.clients
 %{_mandir}/man8/*
+
+
+%changelog
+* Sun Oct 04 2009 Oden Eriksson <oeriksson@mandriva.com> 1.09-4mdv2010.0
++ Revision: 453592
+- fix build
+- rebuild
+
+  + Thierry Vignaud <tvignaud@mandriva.com>
+    - rebuild
+
+* Sat Oct 25 2008 Oden Eriksson <oeriksson@mandriva.com> 1.09-2mdv2009.1
++ Revision: 297260
+- rebuild
+
+* Sun Jul 27 2008 Oden Eriksson <oeriksson@mandriva.com> 1.09-1mdv2009.0
++ Revision: 250442
+- 1.09 (last one from 2004...)
+- fix build (P1,P2)
+- use newer openssl lhash code (P3)
+- use %%serverbuild CFLAGS (P4)
+
+  + Thierry Vignaud <tvignaud@mandriva.com>
+    - rebuild
+    - fix prereq on rpm-helper
+    - kill re-definition of %%buildroot on Pixel's request
+    - use %%mkrel
+    - import ftwall
+
+  + Pixel <pixel@mandriva.com>
+    - adapt to %%_localstatedir now being /var instead of /var/lib (#22312)
+
+  + Olivier Blin <oblin@mandriva.com>
+    - restore BuildRoot
+
+
+* Thu Aug 26 2004 Florin <florin@mandrakesoft.com> 1.08-2mdk
+- use modprobe instead of insmod
+
+* Wed Jun 02 2004 Florin <florin@mandrakesoft.com> 1.08-1mdk
+- first mdk release
