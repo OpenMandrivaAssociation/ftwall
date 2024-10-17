@@ -4,7 +4,7 @@ Version:	1.09
 Release:	5
 Group:		System/Configuration/Networking
 License:	GPL
-URL:		http://www.lowth.com/p2pwall/ftwall/
+URL:		https://www.lowth.com/p2pwall/ftwall/
 Source0:	ftwall-%{version}.tar.gz
 Patch0:		ftwall-1.07-Makefile.patch
 Patch1:		ftwall-1.09-gcc43.diff
